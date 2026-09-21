@@ -581,15 +581,27 @@ export const QuizManagement: React.FC = () => {
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
                   Link / Tautan Kuis Guru <span className="text-rose-500">*</span>
                 </label>
-                <div className="relative">
+                <div className="relative flex gap-2">
                   <input
                     type="text"
                     required
                     placeholder="Contoh: https://script.google.com/macros/s/.../exec atau Google Form"
                     value={linkUrl}
                     onChange={(e) => setLinkUrl(e.target.value)}
-                    className="w-full px-4 py-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm font-mono focus:ring-2 focus:ring-teal-500 focus:outline-hidden text-slate-900 dark:text-white"
+                    className="flex-1 px-4 py-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm font-mono focus:ring-2 focus:ring-teal-500 focus:outline-hidden text-slate-900 dark:text-white"
                   />
+                  {linkUrl.trim() && (
+                    <a
+                      href={linkUrl.trim().startsWith('http') ? linkUrl.trim() : `https://${linkUrl.trim()}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-3.5 py-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold flex items-center gap-1.5 shrink-0 transition-colors border border-slate-200 dark:border-slate-700 cursor-pointer"
+                      title="Tes buka tautan ini di tab baru browser"
+                    >
+                      <ExternalLink className="w-4 h-4 text-blue-500" />
+                      <span className="hidden sm:inline">Uji Link</span>
+                    </a>
+                  )}
                 </div>
                 <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
                   Mendukung Google Apps Script Web App, Google Form, Quizizz, Wordwall, CBT sekolah, Kahoot, atau link soal lainnya.
@@ -597,15 +609,35 @@ export const QuizManagement: React.FC = () => {
 
                 {/* Info khusus bila memasukkan Apps Script */}
                 {linkUrl.includes('script.google.com') && (
-                  <div className="mt-2.5 p-3 rounded-2xl bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 text-xs text-blue-900 dark:text-blue-200 space-y-1">
-                    <p className="font-bold flex items-center gap-1.5">
-                      <span>💡 Tips Google Apps Script untuk Guru:</span>
+                  <div className="mt-3 p-4 rounded-2xl bg-blue-50/90 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 text-xs text-blue-950 dark:text-blue-200 space-y-2.5">
+                    <p className="font-bold flex items-center gap-1.5 text-blue-900 dark:text-blue-100 text-xs">
+                      <span>⚠️ 3 Syarat Wajib Agar Kuis Google Apps Script Bisa Dibuka Murid:</span>
                     </p>
-                    <ul className="list-disc pl-4 space-y-0.5 text-[11px] text-blue-800 dark:text-blue-300">
-                      <li>Gunakan tautan Web App yang berakhiran <strong>/exec</strong> (bukan /dev).</li>
-                      <li>Di menu Deploy Apps Script, pastikan <em>Who has access</em> disetel ke <strong>"Anyone" (Siapa saja)</strong> agar murid bisa mengakses kuis.</li>
-                      <li>Jika script menghasilkan HTML, pastikan menyertakan <code>.setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)</code> agar bisa muncul langsung di layar aplikasi murid.</li>
-                    </ul>
+                    <ol className="list-decimal pl-4 space-y-1.5 text-[11px] text-blue-800 dark:text-blue-300">
+                      <li>
+                        <strong>Gunakan Link Berakhiran /exec:</strong> Jangan gunakan link yang berakhiran <code>/dev</code> karena link <code>/dev</code> hanya bisa dibuka oleh akun Google guru.
+                      </li>
+                      <li>
+                        <strong>Setel Akses ke "Anyone" (Siapa saja):</strong> Saat Deploy Web App di Google Apps Script, pada opsi <em>"Who has access"</em> pastikan memilih <strong>"Anyone"</strong> (agar murid tidak terkena error "You need permission").
+                      </li>
+                      <li>
+                        <strong>Izinkan Iframe di Code.gs:</strong> Tambahkan perintah <code>.setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)</code> agar Google tidak memblokir kuis di dalam aplikasi.
+                      </li>
+                    </ol>
+
+                    <div className="p-2.5 bg-slate-900 text-slate-200 rounded-xl font-mono text-[10px] leading-relaxed overflow-x-auto">
+                      <p className="text-slate-400 mb-1">// Contoh doGet() di Code.gs Google Apps Script:</p>
+                      <code>
+                        function doGet(e) &#123;<br />
+                        &nbsp;&nbsp;return HtmlService.createHtmlOutputFromFile('Index')<br />
+                        &nbsp;&nbsp;&nbsp;&nbsp;.setTitle('Kuis PJOK')<br />
+                        &nbsp;&nbsp;&nbsp;&nbsp;.setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);<br />
+                        &#125;
+                      </code>
+                    </div>
+                    <p className="text-[11px] text-blue-700 dark:text-blue-400 italic">
+                      *Catatan: Murid juga kini otomatis disediakan tombol <strong>"Buka di Tab Baru"</strong> di aplikasi jika browser ponsel mereka membatasi tampilan frame Google.
+                    </p>
                   </div>
                 )}
               </div>

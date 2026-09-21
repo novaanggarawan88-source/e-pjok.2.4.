@@ -15,7 +15,8 @@ import {
   Maximize2,
   RefreshCw,
   ShieldAlert,
-  Send
+  Send,
+  ExternalLink
 } from 'lucide-react';
 
 export const StudentQuiz: React.FC = () => {
@@ -165,6 +166,18 @@ export const StudentQuiz: React.FC = () => {
               </div>
             )}
 
+            {/* Open in New Tab Button (Essential for Google Apps Script & Google Forms) */}
+            <a
+              href={activeQuizToTake.linkUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition-all cursor-pointer shadow-sm"
+              title="Buka langsung di Tab Baru / Browser Utama (Wajib digunakan jika Google memblokir tampilan frame)"
+            >
+              <ExternalLink className="w-4 h-4" />
+              <span className="hidden sm:inline">Buka di Tab Baru</span>
+            </a>
+
             {/* Mark as Done Button */}
             <button
               onClick={handleMarkAsDone}
@@ -180,6 +193,25 @@ export const StudentQuiz: React.FC = () => {
             </button>
           </div>
         </header>
+
+        {/* Embedded Helper Info Banner */}
+        <div className="bg-slate-800/90 border-b border-slate-700/80 px-4 py-2 flex items-center justify-between text-xs text-slate-300 gap-3">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="text-amber-400 font-bold shrink-0">💡 Perhatian:</span>
+            <span className="truncate">
+              Jika halaman kuis putih atau ada pesan "refused to connect", klik <strong>Buka di Tab Baru</strong>.
+            </span>
+          </div>
+          <a
+            href={activeQuizToTake.linkUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="shrink-0 inline-flex items-center gap-1 text-sky-400 hover:text-sky-300 font-bold underline cursor-pointer"
+          >
+            <span>Buka di Tab Baru</span>
+            <ExternalLink className="w-3.5 h-3.5" />
+          </a>
+        </div>
 
         {/* Embedded Quiz Frame / In-App Direct Display */}
         <div className="flex-1 bg-slate-950 relative overflow-hidden flex flex-col">
@@ -352,13 +384,25 @@ export const StudentQuiz: React.FC = () => {
                 {/* Bottom Action Area */}
                 <div className="p-4 bg-slate-50 dark:bg-slate-800/70 border-t border-slate-100 dark:border-slate-800">
                   {canAccess ? (
-                    <button
-                      onClick={() => handleOpenQuiz(quiz)}
-                      className="w-full min-h-[44px] flex items-center justify-center gap-2 px-5 py-2.5 rounded-2xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs sm:text-sm shadow-md shadow-teal-600/20 transition-all cursor-pointer"
-                    >
-                      <Play className="w-4 h-4 fill-white" />
-                      <span>{isDone ? 'Buka Kembali Kuis' : 'Buka & Kerjakan Kuis'}</span>
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleOpenQuiz(quiz)}
+                        className="flex-1 min-h-[44px] flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs sm:text-sm shadow-md shadow-teal-600/20 transition-all cursor-pointer"
+                      >
+                        <Play className="w-4 h-4 fill-white" />
+                        <span>{isDone ? 'Buka di Sini' : 'Buka Kuis'}</span>
+                      </button>
+                      <a
+                        href={quiz.linkUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="min-h-[44px] px-3.5 flex items-center justify-center gap-1.5 rounded-2xl bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 font-bold text-xs transition-all shadow-xs shrink-0 cursor-pointer"
+                        title="Buka langsung di Tab Baru / Browser Eksternal (Sangat disarankan untuk Google Apps Script)"
+                      >
+                        <ExternalLink className="w-4 h-4 text-blue-500" />
+                        <span className="hidden sm:inline">Tab Baru</span>
+                      </a>
+                    </div>
                   ) : (
                     <button
                       disabled
