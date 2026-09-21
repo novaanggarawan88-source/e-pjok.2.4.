@@ -364,6 +364,26 @@ export const DatabaseService = {
     setStored(LS_USERS, filtered);
   },
 
+  async deleteUsers(uids: string[]): Promise<void> {
+    if (!uids || uids.length === 0) return;
+    if (isFirebaseConfigured() && db) {
+      try {
+        const promises: Promise<any>[] = [];
+        for (const uid of uids) {
+          promises.push(deleteDoc(doc(db, 'pengguna', uid)));
+          promises.push(deleteDoc(doc(db, 'users', uid)));
+        }
+        await Promise.all(promises);
+      } catch (err) {
+        console.warn('Firestore deleteUsers error:', err);
+      }
+    }
+    const all = getStored<UserProfile>(LS_USERS, INITIAL_USERS);
+    const setUids = new Set(uids);
+    const filtered = all.filter((u) => !setUids.has(u.uid));
+    setStored(LS_USERS, filtered);
+  },
+
   // --- CLASSES ---
   async getClasses(): Promise<ClassItem[]> {
     if (isFirebaseConfigured() && db) {

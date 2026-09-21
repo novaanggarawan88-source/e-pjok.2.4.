@@ -18,7 +18,11 @@ import {
   Eye,
   EyeOff,
   Copy,
-  Info
+  Info,
+  CheckSquare,
+  Square,
+  AlertTriangle,
+  Loader2
 } from 'lucide-react';
 
 export const StudentManagement: React.FC = () => {
@@ -27,6 +31,11 @@ export const StudentManagement: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedClass, setSelectedClass] = useState('Semua');
   
+  // Selection states for bulk actions (Kotak Centang)
+  const [selectedUids, setSelectedUids] = useState<string[]>([]);
+  const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
   // Modal states
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingStudent, setEditingStudent] = useState<UserProfile | null>(null);
@@ -109,7 +118,35 @@ export const StudentManagement: React.FC = () => {
   const handleDelete = async (uid: string, name: string) => {
     if (window.confirm(`Apakah Anda yakin ingin menghapus data murid: ${name}?`)) {
       await DatabaseService.deleteUser(uid);
+      setSelectedUids((prev) => prev.filter((id) => id !== uid));
       showNotice('Data murid berhasil dihapus');
+    }
+  };
+
+  const handleToggleStudentSelect = (uid: string) => {
+    setSelectedUids((prev) =>
+      prev.includes(uid) ? prev.filter((id) => id !== uid) : [...prev, uid]
+    );
+  };
+
+  const handleClearSelection = () => {
+    setSelectedUids([]);
+  };
+
+  const handleExecuteBulkDelete = async () => {
+    if (selectedUids.length === 0) return;
+    setIsDeleting(true);
+    try {
+      const count = selectedUids.length;
+      await DatabaseService.deleteUsers(selectedUids);
+      setSelectedUids([]);
+      setIsBulkDeleteModalOpen(false);
+      showNotice(`Berhasil menghapus ${count} data murid secara permanen`);
+    } catch (err) {
+      console.error('Gagal menghapus murid secara massal:', err);
+      showNotice('Terjadi kesalahan saat menghapus data murid.');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -212,6 +249,24 @@ export const StudentManagement: React.FC = () => {
     return matchQuery && matchClass;
   });
 
+  const isAllFilteredSelected =
+    filteredStudents.length > 0 &&
+    filteredStudents.every((s) => selectedUids.includes(s.uid));
+
+  const isSomeFilteredSelected =
+    filteredStudents.some((s) => selectedUids.includes(s.uid)) &&
+    !isAllFilteredSelected;
+
+  const handleToggleSelectAll = () => {
+    if (isAllFilteredSelected) {
+      const filteredUids = new Set(filteredStudents.map((s) => s.uid));
+      setSelectedUids((prev) => prev.filter((id) => !filteredUids.has(id)));
+    } else {
+      const newUids = new Set([...selectedUids, ...filteredStudents.map((s) => s.uid)]);
+      setSelectedUids(Array.from(newUids));
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Toast notification */}
@@ -292,13 +347,63 @@ export const StudentManagement: React.FC = () => {
         </div>
       </div>
 
+      {/* Bulk Action Bar (Muncul saat ada murid yang dicentang) */}
+      {selectedUids.length > 0 && (
+        <div className="bg-rose-50 border-2 border-rose-200 p-4 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm animate-in fade-in slide-in-from-top-2">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-rose-600 text-white flex items-center justify-center font-black text-sm shrink-0 shadow-xs">
+              {selectedUids.length}
+            </div>
+            <div>
+              <p className="text-sm font-extrabold text-slate-900">
+                {selectedUids.length} murid ditandai (dicentang)
+              </p>
+              <p className="text-xs text-slate-600">
+                Gunakan tombol di samping untuk menghapus nama murid terpilih secara massal / banyak sekaligus.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
+            <button
+              type="button"
+              onClick={handleClearSelection}
+              className="px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 text-xs font-bold transition-colors cursor-pointer shadow-2xs"
+            >
+              Batal Pilih ({selectedUids.length})
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setIsBulkDeleteModalOpen(true)}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs sm:text-sm font-bold shadow-md shadow-rose-600/20 transition-all cursor-pointer"
+            >
+              <Trash2 className="w-4 h-4" />
+              <span>Hapus {selectedUids.length} Murid Terpilih</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Students Table */}
       <div className="bg-white rounded-3xl border border-slate-200/80 shadow-xs overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b border-slate-100 bg-slate-50/75 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-                <th className="py-3.5 px-4 w-12 text-center">NO</th>
+                <th className="py-3.5 px-3 w-10 text-center">
+                  <input
+                    type="checkbox"
+                    title={isAllFilteredSelected ? "Batal centang semua murid" : "Centang semua murid di daftar"}
+                    checked={isAllFilteredSelected}
+                    ref={(el) => {
+                      if (el) el.indeterminate = isSomeFilteredSelected;
+                    }}
+                    onChange={handleToggleSelectAll}
+                    className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer accent-blue-600"
+                  />
+                </th>
+                <th className="py-3.5 px-3 w-12 text-center">NO</th>
                 <th className="py-3.5 px-4">NAMA MURID</th>
                 <th className="py-3.5 px-4">NIS</th>
                 <th className="py-3.5 px-4">KELAS</th>
@@ -312,103 +417,121 @@ export const StudentManagement: React.FC = () => {
             <tbody className="divide-y divide-slate-100 text-xs sm:text-sm">
               {filteredStudents.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="py-12 text-center text-slate-400">
+                  <td colSpan={10} className="py-12 text-center text-slate-400">
                     Tidak ditemukan data murid yang sesuai.
                   </td>
                 </tr>
               ) : (
-                filteredStudents.map((s, idx) => (
-                  <tr key={s.uid} className="hover:bg-slate-50/70 transition-colors">
-                    <td className="py-3.5 px-4 text-center font-medium text-slate-400">
-                      {idx + 1}
-                    </td>
-                    <td className="py-3.5 px-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-blue-600 text-white font-bold flex items-center justify-center text-xs">
-                          {s.nama.charAt(0)}
+                filteredStudents.map((s, idx) => {
+                  const isSelected = selectedUids.includes(s.uid);
+                  return (
+                    <tr
+                      key={s.uid}
+                      className={`transition-colors ${
+                        isSelected
+                          ? 'bg-blue-50/90 hover:bg-blue-100/70 border-l-4 border-l-blue-600'
+                          : 'hover:bg-slate-50/70'
+                      }`}
+                    >
+                      <td className="py-3.5 px-3 text-center">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => handleToggleStudentSelect(s.uid)}
+                          className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer accent-blue-600"
+                        />
+                      </td>
+                      <td className="py-3.5 px-3 text-center font-medium text-slate-400">
+                        {idx + 1}
+                      </td>
+                      <td className="py-3.5 px-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-blue-600 text-white font-bold flex items-center justify-center text-xs">
+                            {s.nama.charAt(0)}
+                          </div>
+                          <div>
+                            <p className="font-bold text-slate-900">{s.nama}</p>
+                            <p className="text-[11px] text-slate-400 sm:hidden">NIS: {s.nis || '-'}</p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="font-bold text-slate-900">{s.nama}</p>
-                          <p className="text-[11px] text-slate-400 sm:hidden">NIS: {s.nis || '-'}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="py-3.5 px-4 font-mono text-slate-600">
-                      {s.nis || '-'}
-                    </td>
-                    <td className="py-3.5 px-4">
-                      <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-100 text-slate-700">
-                        {s.kelas || '-'}
-                      </span>
-                    </td>
-                    <td className="py-3.5 px-4 text-center font-bold text-slate-700">
-                      {s.nomorAbsen || '-'}
-                    </td>
-                    <td className="py-3.5 px-4 text-slate-600 font-mono text-xs truncate max-w-[170px]">
-                      {s.email}
-                    </td>
-                    <td className="py-3.5 px-4">
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-mono text-xs text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md">
-                          {showPasswords[s.uid] ? (s.password || '123456') : '••••••••'}
+                      </td>
+                      <td className="py-3.5 px-4 font-mono text-slate-600">
+                        {s.nis || '-'}
+                      </td>
+                      <td className="py-3.5 px-4">
+                        <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-100 text-slate-700">
+                          {s.kelas || '-'}
                         </span>
+                      </td>
+                      <td className="py-3.5 px-4 text-center font-bold text-slate-700">
+                        {s.nomorAbsen || '-'}
+                      </td>
+                      <td className="py-3.5 px-4 text-slate-600 font-mono text-xs truncate max-w-[170px]">
+                        {s.email}
+                      </td>
+                      <td className="py-3.5 px-4">
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-mono text-xs text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md">
+                            {showPasswords[s.uid] ? (s.password || '123456') : '••••••••'}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => togglePasswordVisibility(s.uid)}
+                            className="p-1 text-slate-400 hover:text-blue-600 transition-colors cursor-pointer"
+                            title={showPasswords[s.uid] ? 'Sembunyikan password' : 'Lihat password'}
+                          >
+                            {showPasswords[s.uid] ? (
+                              <EyeOff className="w-3.5 h-3.5" />
+                            ) : (
+                              <Eye className="w-3.5 h-3.5" />
+                            )}
+                          </button>
+                        </div>
+                      </td>
+                      <td className="py-3.5 px-4 text-center">
                         <button
-                          type="button"
-                          onClick={() => togglePasswordVisibility(s.uid)}
-                          className="p-1 text-slate-400 hover:text-blue-600 transition-colors cursor-pointer"
-                          title={showPasswords[s.uid] ? 'Sembunyikan password' : 'Lihat password'}
+                          onClick={() => handleToggleStatus(s)}
+                          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold transition-colors cursor-pointer ${
+                            s.status === 'aktif'
+                              ? 'bg-blue-50 text-blue-700 hover:bg-blue-100'
+                              : 'bg-rose-50 text-rose-700 hover:bg-rose-100'
+                          }`}
+                          title="Klik untuk ubah status"
                         >
-                          {showPasswords[s.uid] ? (
-                            <EyeOff className="w-3.5 h-3.5" />
+                          {s.status === 'aktif' ? (
+                            <>
+                              <CheckCircle className="w-3 h-3" />
+                              <span>Aktif</span>
+                            </>
                           ) : (
-                            <Eye className="w-3.5 h-3.5" />
+                            <>
+                              <XCircle className="w-3 h-3" />
+                              <span>Nonaktif</span>
+                            </>
                           )}
                         </button>
-                      </div>
-                    </td>
-                    <td className="py-3.5 px-4 text-center">
-                      <button
-                        onClick={() => handleToggleStatus(s)}
-                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold transition-colors cursor-pointer ${
-                          s.status === 'aktif'
-                            ? 'bg-blue-50 text-blue-700 hover:bg-blue-100'
-                            : 'bg-rose-50 text-rose-700 hover:bg-rose-100'
-                        }`}
-                        title="Klik untuk ubah status"
-                      >
-                        {s.status === 'aktif' ? (
-                          <>
-                            <CheckCircle className="w-3 h-3" />
-                            <span>Aktif</span>
-                          </>
-                        ) : (
-                          <>
-                            <XCircle className="w-3 h-3" />
-                            <span>Nonaktif</span>
-                          </>
-                        )}
-                      </button>
-                    </td>
-                    <td className="py-3.5 px-4 text-center">
-                      <div className="flex items-center justify-center gap-1.5">
-                        <button
-                          onClick={() => openEditModal(s)}
-                          className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
-                          title="Edit Murid & Kredensial"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(s.uid, s.nama)}
-                          className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
-                          title="Hapus Murid"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                      </td>
+                      <td className="py-3.5 px-4 text-center">
+                        <div className="flex items-center justify-center gap-1.5">
+                          <button
+                            onClick={() => openEditModal(s)}
+                            className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
+                            title="Edit Murid & Kredensial"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(s.uid, s.nama)}
+                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                            title="Hapus Murid"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
@@ -713,6 +836,86 @@ export const StudentManagement: React.FC = () => {
                   Proses Import Data Murid
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Konfirmasi Hapus Banyak Murid */}
+      {isBulkDeleteModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-base sm:text-lg font-extrabold text-slate-900 font-heading">
+                  Hapus {selectedUids.length} Data Murid Sekaligus?
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Konfirmasi penghapusan banyak nama murid
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3.5 bg-rose-50 border border-rose-200/80 rounded-2xl text-xs text-rose-800 space-y-1">
+              <p className="font-bold flex items-center gap-1.5 text-rose-900">
+                <span>⚠️</span> Peringatan Penghapusan Permanen:
+              </p>
+              <p>
+                Sebanyak <strong className="text-rose-950">{selectedUids.length} akun murid</strong> yang dicentang akan dihapus dari sistem beserta akun kredensial login mereka. Murid yang dihapus tidak akan dapat masuk kembali.
+              </p>
+            </div>
+
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between text-xs font-bold text-slate-700">
+                <span>Daftar Murid yang Akan Dihapus:</span>
+                <span className="text-rose-600">{selectedUids.length} murid</span>
+              </div>
+              <div className="max-h-48 overflow-y-auto p-2.5 bg-slate-50 rounded-xl border border-slate-200 text-xs space-y-1 divide-y divide-slate-100">
+                {students
+                  .filter((s) => selectedUids.includes(s.uid))
+                  .map((s, i) => (
+                    <div key={s.uid} className="pt-1.5 first:pt-0 flex items-center justify-between gap-2">
+                      <span className="font-bold text-slate-800 truncate">
+                        {i + 1}. {s.nama}
+                      </span>
+                      <span className="text-[11px] text-slate-500 font-mono shrink-0">
+                        {s.kelas ? `Kelas ${s.kelas}` : '-'}
+                      </span>
+                    </div>
+                  ))}
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={() => setIsBulkDeleteModalOpen(false)}
+                className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-bold cursor-pointer disabled:opacity-50"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={handleExecuteBulkDelete}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs sm:text-sm font-bold shadow-md shadow-rose-600/20 cursor-pointer disabled:opacity-50"
+              >
+                {isDeleting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Menghapus...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4" />
+                    <span>Ya, Hapus {selectedUids.length} Murid</span>
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>
