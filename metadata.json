@@ -1,0 +1,11 @@
+{
+  "name": "PENILAIAN ANTAR TEMAN PJOK 2.4.",
+  "description": "Aplikasi penilaian antar teman (peer assessment) pembelajaran PJOK untuk guru dan siswa, cerah, bersih, responsif dan mudah digunakan.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
