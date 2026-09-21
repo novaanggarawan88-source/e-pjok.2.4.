@@ -1110,7 +1110,10 @@ export const DatabaseService = {
       // 2. Sinkronkan Pengguna / Murid & Guru
       const localUsers = getStored<UserProfile>(LS_USERS, INITIAL_USERS);
       for (const u of localUsers) {
-        await setDoc(doc(db, 'pengguna', u.uid), u, { merge: true });
+        await Promise.all([
+          setDoc(doc(db, 'pengguna', u.uid), u, { merge: true }),
+          setDoc(doc(db, 'users', u.uid), u, { merge: true })
+        ]);
       }
 
       // 3. Sinkronkan Kelas
@@ -1163,6 +1166,39 @@ export const DatabaseService = {
     }
   },
 
+  /**
+   * Mengambil paksa data terbaru dari Firebase Firestore ke localStorage dan memicu update UI.
+   * Sangat berguna saat baru membuka aplikasi di perangkat lain (Laptop/HP) agar segera memuat data cloud terbaru.
+   */
+  async refreshAllDataFromCloud(): Promise<{ success: boolean; message: string }> {
+    if (!isFirebaseConfigured() || !db) {
+      return { success: false, message: 'Koneksi Firebase Cloud belum aktif.' };
+    }
+    try {
+      await Promise.all([
+        this.getAppConfig(),
+        this.getUsers(),
+        this.getClasses(),
+        this.getIndicators(),
+        this.getTasks(),
+        this.getAssessments(),
+        this.getQuizzes(),
+        this.getMaterials()
+      ]);
+      notifySubscribers();
+      return {
+        success: true,
+        message: 'Data terbaru dari Cloud Firestore berhasil dimuat!'
+      };
+    } catch (err: any) {
+      console.error('Error refreshAllDataFromCloud:', err);
+      return {
+        success: false,
+        message: err?.message || 'Gagal memperbarui data dari cloud.'
+      };
+    }
+  },
+
   async seedPenggunaToFirestoreIfEmpty(): Promise<void> {
     if (!isFirebaseConfigured() || !db) return;
     try {
@@ -1170,6 +1206,7 @@ export const DatabaseService = {
       if (snap.empty) {
         for (const user of INITIAL_USERS) {
           await setDoc(doc(db, 'pengguna', user.uid), user, { merge: true });
+          await setDoc(doc(db, 'users', user.uid), user, { merge: true });
         }
       }
       // Pastikan app_config juga ada di Firestore
@@ -1178,6 +1215,27 @@ export const DatabaseService = {
         const stored = localStorage.getItem(LS_APP_CONFIG);
         const cfg = stored ? JSON.parse(stored) : INITIAL_APP_CONFIG;
         await setDoc(doc(db, 'settings', 'app_config'), cfg, { merge: true });
+      }
+      // Pastikan initial kelas ada di Firestore jika kosong
+      const snapClasses = await getDocs(collection(db, 'classes'));
+      if (snapClasses.empty) {
+        for (const c of INITIAL_CLASSES) {
+          await setDoc(doc(db, 'classes', c.id), c, { merge: true });
+        }
+      }
+      // Pastikan initial indikator ada di Firestore jika kosong
+      const snapIndicators = await getDocs(collection(db, 'indicators'));
+      if (snapIndicators.empty) {
+        for (const ind of INITIAL_INDICATORS) {
+          await setDoc(doc(db, 'indicators', ind.id), ind, { merge: true });
+        }
+      }
+      // Pastikan initial tasks ada di Firestore jika kosong
+      const snapTasks = await getDocs(collection(db, 'tasks'));
+      if (snapTasks.empty) {
+        for (const t of INITIAL_TASKS) {
+          await setDoc(doc(db, 'tasks', t.id), t, { merge: true });
+        }
       }
       // Pastikan initial kuis ada di Firestore jika kosong
       const snapQuiz = await getDocs(collection(db, 'quizzes'));

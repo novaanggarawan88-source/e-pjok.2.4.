@@ -17,7 +17,8 @@ import {
   collection,
   getDocs,
   query,
-  where
+  where,
+  onSnapshot
 } from 'firebase/firestore';
 
 interface AuthContextType {
@@ -212,6 +213,46 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       isMounted = false;
     };
   }, []);
+
+  // Sinkronisasi real-time untuk profil akun yang sedang aktif (perubahan foto, password, dsb. antar HP & Laptop)
+  useEffect(() => {
+    if (!currentUser?.uid || !db || !isFirebaseConfigured()) return;
+
+    const userDocRef = doc(db, 'pengguna', currentUser.uid);
+    const unsub = onSnapshot(
+      userDocRef,
+      (snap) => {
+        if (snap.exists()) {
+          const cloudData = snap.data() as UserProfile;
+          if (cloudData.status === 'nonaktif') {
+            localStorage.removeItem(LS_SESSION_KEY);
+            setCurrentUser(null);
+            return;
+          }
+          // Perbarui hanya jika terdapat perubahan data nyata
+          setCurrentUser((prev) => {
+            if (!prev) return cloudData;
+            const hasChanged =
+              prev.fotoProfil !== cloudData.fotoProfil ||
+              prev.password !== cloudData.password ||
+              prev.nama !== cloudData.nama ||
+              prev.kelas !== cloudData.kelas ||
+              prev.status !== cloudData.status ||
+              prev.role !== cloudData.role;
+            if (hasChanged) {
+              return { ...prev, ...cloudData };
+            }
+            return prev;
+          });
+        }
+      },
+      (err) => {
+        console.warn('Realtime current user sync notice:', err);
+      }
+    );
+
+    return () => unsub();
+  }, [currentUser?.uid]);
 
   /**
    * Login dengan Akun Google menggunakan Firebase Authentication (Popup)

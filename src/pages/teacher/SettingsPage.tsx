@@ -34,6 +34,7 @@ export const SettingsPage: React.FC = () => {
   const { currentUser, setCurrentUser } = useAuth();
   const [resetting, setResetting] = useState(false);
   const [syncingToCloud, setSyncingToCloud] = useState(false);
+  const [refreshingFromCloud, setRefreshingFromCloud] = useState(false);
   const [savingConfig, setSavingConfig] = useState(false);
   const [savingTeacher, setSavingTeacher] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -151,6 +152,20 @@ export const SettingsPage: React.FC = () => {
       showToast('Gagal sinkronisasi: ' + (e?.message || 'Terjadi gangguan jaringan'));
     } finally {
       setSyncingToCloud(false);
+    }
+  };
+
+  // Muat ulang paksa seluruh data terbaru dari Firebase Cloud Firestore
+  const handleRefreshFromCloud = async () => {
+    setRefreshingFromCloud(true);
+    try {
+      const res = await DatabaseService.refreshAllDataFromCloud();
+      showToast(res.message);
+      await loadData();
+    } catch (e: any) {
+      showToast('Gagal memuat dari cloud: ' + (e?.message || 'Terjadi gangguan jaringan'));
+    } finally {
+      setRefreshingFromCloud(false);
     }
   };
 
@@ -600,15 +615,24 @@ export const SettingsPage: React.FC = () => {
             </p>
           </div>
 
-          <div className="pt-4 border-t border-slate-100">
+          <div className="pt-4 border-t border-slate-100 flex flex-col sm:flex-row gap-2.5">
             <button
               type="button"
               onClick={handleSyncToCloud}
-              disabled={syncingToCloud}
-              className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-md shadow-blue-600/20 transition-all cursor-pointer disabled:opacity-50"
+              disabled={syncingToCloud || refreshingFromCloud}
+              className="flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-md shadow-blue-600/20 transition-all cursor-pointer disabled:opacity-50"
             >
               <RefreshCw className={`w-4 h-4 ${syncingToCloud ? 'animate-spin' : ''}`} />
-              <span>{syncingToCloud ? 'Menyinkronkan ke Cloud...' : 'Sinkronkan Semua Data ke Cloud Sekarang'}</span>
+              <span>{syncingToCloud ? 'Menyinkronkan...' : 'Unggah Data Lokal ke Cloud'}</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleRefreshFromCloud}
+              disabled={syncingToCloud || refreshingFromCloud}
+              className="flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold border border-slate-300/80 transition-all cursor-pointer disabled:opacity-50"
+            >
+              <RefreshCw className={`w-4 h-4 ${refreshingFromCloud ? 'animate-spin' : ''}`} />
+              <span>{refreshingFromCloud ? 'Mengunduh...' : 'Tarik Data dari Cloud'}</span>
             </button>
           </div>
         </div>
