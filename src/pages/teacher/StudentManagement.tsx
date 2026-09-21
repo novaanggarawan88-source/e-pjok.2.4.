@@ -446,8 +446,12 @@ export const StudentManagement: React.FC = () => {
                       </td>
                       <td className="py-3.5 px-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-blue-600 text-white font-bold flex items-center justify-center text-xs">
-                            {s.nama.charAt(0)}
+                          <div className="w-8 h-8 rounded-full bg-blue-600 text-white font-bold flex items-center justify-center text-xs overflow-hidden shrink-0">
+                            {s.fotoProfil ? (
+                              <img src={s.fotoProfil} alt={s.nama} className="w-full h-full object-cover" />
+                            ) : (
+                              s.nama.charAt(0)
+                            )}
                           </div>
                           <div>
                             <p className="font-bold text-slate-900">{s.nama}</p>

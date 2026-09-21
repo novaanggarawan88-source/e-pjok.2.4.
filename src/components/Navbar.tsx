@@ -56,8 +56,24 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, isSidebarOpen }
             </div>
           </div>
 
-          {/* Right Section: Theme Toggle (Gelap/Terang) */}
-          <div className="flex items-center gap-2 shrink-0">
+          {/* Right Section: User Avatar & Theme Toggle (Gelap/Terang) */}
+          <div className="flex items-center gap-2.5 shrink-0">
+            {currentUser && (
+              <div
+                className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-teal-600 text-white font-bold text-xs sm:text-sm flex items-center justify-center shadow-xs overflow-hidden border border-slate-200 dark:border-slate-700 shrink-0"
+                title={currentUser.nama}
+              >
+                {currentUser.fotoProfil ? (
+                  <img
+                    src={currentUser.fotoProfil}
+                    alt={currentUser.nama}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <span>{currentUser.nama ? currentUser.nama.charAt(0) : 'U'}</span>
+                )}
+              </div>
+            )}
             <ThemeToggle />
           </div>
 

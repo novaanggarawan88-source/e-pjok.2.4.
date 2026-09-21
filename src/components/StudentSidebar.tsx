@@ -179,8 +179,16 @@ export const StudentSidebar: React.FC<StudentSidebarProps> = ({
             {/* Student Profile Info Card at Bottom */}
             <div className="p-3 bg-slate-50 dark:bg-slate-800/80 rounded-2xl border border-slate-200/80 dark:border-slate-700/60 flex items-center justify-between gap-2">
               <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-9 h-9 rounded-xl bg-teal-600 text-white flex items-center justify-center font-bold text-sm shadow-xs shrink-0">
-                  {user?.nama ? user.nama.charAt(0) : 'S'}
+                <div className="w-9 h-9 rounded-xl bg-teal-600 text-white flex items-center justify-center font-bold text-sm shadow-xs shrink-0 overflow-hidden">
+                  {user?.fotoProfil ? (
+                    <img
+                      src={user.fotoProfil}
+                      alt={user.nama}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span>{user?.nama ? user.nama.charAt(0) : 'S'}</span>
+                  )}
                 </div>
                 <div className="min-w-0">
                   <p className="font-extrabold text-xs text-slate-800 dark:text-slate-100 truncate">

@@ -98,13 +98,27 @@ export const StudentHome: React.FC<StudentHomeProps> = ({
             <span>Asesmen Formatif PJOK</span>
           </div>
 
-          <h2 className="text-xl sm:text-3xl font-extrabold font-heading tracking-tight leading-tight">
-            Halo, {user?.nama}! 👋
-          </h2>
-
-          <p className="mt-1 text-xs sm:text-base text-blue-100">
-            Siswa Kelas <strong className="text-white underline decoration-sky-300">{user?.kelas || 'XI 7'}</strong> (No. Absen {user?.nomorAbsen || '01'})
-          </p>
+          <div className="flex items-center gap-3.5 mb-2 sm:mb-3">
+            <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl bg-white/20 border-2 border-white/40 shadow-inner flex items-center justify-center font-black text-xl sm:text-2xl overflow-hidden shrink-0">
+              {user?.fotoProfil ? (
+                <img
+                  src={user.fotoProfil}
+                  alt={user.nama}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <span>{user?.nama ? user.nama.charAt(0) : 'S'}</span>
+              )}
+            </div>
+            <div>
+              <h2 className="text-xl sm:text-3xl font-extrabold font-heading tracking-tight leading-tight">
+                Halo, {user?.nama}! 👋
+              </h2>
+              <p className="mt-0.5 text-xs sm:text-base text-blue-100">
+                Siswa Kelas <strong className="text-white underline decoration-sky-300">{user?.kelas || 'XI 7'}</strong> (No. Absen {user?.nomorAbsen || '01'})
+              </p>
+            </div>
+          </div>
 
           <p className="mt-2 text-xs sm:text-sm text-blue-100/90 italic leading-relaxed">
             &ldquo;Belajar menilai, belajar memperbaiki gerak bersama teman secara sportif dan objektif.&rdquo;
