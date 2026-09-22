@@ -77,15 +77,27 @@ export const StudentAssessmentForm: React.FC<StudentAssessmentFormProps> = ({
       ]);
 
       // Filter classmates in same class, excluding current user
-      const studentClass = (user?.kelas || task.kelas).trim().toLowerCase();
-      const peers = allUsers.filter(
-        (u) =>
-          u.role === 'murid' &&
-          u.status === 'aktif' &&
-          (studentClass ? (u.kelas || '').trim().toLowerCase() === studentClass : true) &&
-          u.uid !== user?.uid &&
-          u.nama.toLowerCase() !== user?.nama.toLowerCase()
-      );
+      const studentClass = (user?.kelas || '').trim().toLowerCase().replace(/\s+/g, ' ');
+      let peers = allUsers.filter((u) => {
+        if (u.role !== 'murid' || u.status !== 'aktif') return false;
+        if (u.uid === user?.uid || u.nama.toLowerCase() === (user?.nama || '').toLowerCase()) return false;
+        if (!studentClass) return true;
+        const uClass = (u.kelas || '').trim().toLowerCase().replace(/\s+/g, ' ');
+        return (
+          uClass === studentClass ||
+          uClass.replace(/[\s\-_]/g, '') === studentClass.replace(/[\s\-_]/g, '')
+        );
+      });
+      // Fallback: jika kelas tidak cocok persis, tampilkan murid aktif lain agar dropdown tidak kosong
+      if (peers.length === 0) {
+        peers = allUsers.filter(
+          (u) =>
+            u.role === 'murid' &&
+            u.status === 'aktif' &&
+            u.uid !== user?.uid &&
+            u.nama.toLowerCase() !== (user?.nama || '').toLowerCase()
+        );
+      }
       setClassmates(peers);
 
       // Filter indicators for this task

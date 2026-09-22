@@ -72,6 +72,65 @@ const notifySubscribers = () => {
   });
 };
 
+/**
+ * Memeriksa secara paten apakah suatu tugas penilaian berlaku untuk kelas murid tertentu.
+ * Menangani:
+ * - Huruf besar/kecil (XI 7 vs xi 7)
+ * - Variasi penulisan spasi/tanda hubung (XI 7 vs XI-7 vs XI7)
+ * - Array targetKelas (['XI 4', 'XI 5'])
+ * - String t.kelas dengan pemisah koma ('XI 4, XI 5, XI 6')
+ * - Opsi 'Semua' / 'Semua Kelas'
+ * - Fallback jika tugas belum dispesifikasikan kelasnya
+ */
+export function isTaskForStudent(task: AssessmentTask, studentClass?: string): boolean {
+  if (task.status !== 'aktif') return false;
+  if (!studentClass) return true; // jika data kelas murid belum diisi, jangan sembunyikan tugas
+
+  const cleanStudentClass = studentClass.trim().toLowerCase().replace(/\s+/g, ' ');
+  if (!cleanStudentClass || cleanStudentClass === 'semua' || cleanStudentClass === 'semua kelas') {
+    return true;
+  }
+
+  // 1. Cek string tugas 'Semua' atau 'Semua Kelas'
+  const taskKelasStr = (task.kelas || '').trim().toLowerCase();
+  if (taskKelasStr === 'semua' || taskKelasStr === 'semua kelas') {
+    return true;
+  }
+
+  // 2. Cek array targetKelas jika ada
+  if (task.targetKelas && Array.isArray(task.targetKelas) && task.targetKelas.length > 0) {
+    const hasMatch = task.targetKelas.some((k) => {
+      const cleanK = (k || '').trim().toLowerCase().replace(/\s+/g, ' ');
+      if (cleanK === 'semua' || cleanK === 'semua kelas') return true;
+      return (
+        cleanK === cleanStudentClass ||
+        cleanK.replace(/[\s\-_]/g, '') === cleanStudentClass.replace(/[\s\-_]/g, '')
+      );
+    });
+    if (hasMatch) return true;
+  }
+
+  // 3. Cek string task.kelas (bisa berupa daftar dipisah koma/garis miring)
+  if (taskKelasStr) {
+    const list = taskKelasStr.split(/[,;/]/).map((k) => k.trim().replace(/\s+/g, ' '));
+    const matched = list.some((k) => {
+      if (k === 'semua' || k === 'semua kelas') return true;
+      return (
+        k === cleanStudentClass ||
+        k.replace(/[\s\-_]/g, '') === cleanStudentClass.replace(/[\s\-_]/g, '')
+      );
+    });
+    if (matched) return true;
+  }
+
+  // 4. Fallback jika tugas sama sekali tidak memiliki targetKelas / t.kelas kosong
+  if ((!task.targetKelas || task.targetKelas.length === 0) && !taskKelasStr) {
+    return true;
+  }
+
+  return false;
+}
+
 let realtimeListenersInitialized = false;
 
 /**
@@ -534,16 +593,7 @@ export const DatabaseService = {
 
   async getTasksForClass(kelas: string): Promise<AssessmentTask[]> {
     const tasks = await this.getTasks();
-    const target = (kelas || '').trim().toLowerCase();
-    return tasks.filter((t) => {
-      if (t.status !== 'aktif') return false;
-      if (t.kelas === 'Semua' || target === 'semua') return true;
-      if (t.targetKelas && Array.isArray(t.targetKelas) && t.targetKelas.length > 0) {
-        return t.targetKelas.some((k) => k.trim().toLowerCase() === target);
-      }
-      const list = (t.kelas || '').split(',').map((k) => k.trim().toLowerCase());
-      return list.includes(target);
-    });
+    return tasks.filter((t) => isTaskForStudent(t, kelas));
   },
 
   async saveTask(task: AssessmentTask): Promise<void> {

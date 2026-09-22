@@ -8,7 +8,7 @@ import { StudentProfile } from './student/StudentProfile';
 import { StudentQuiz } from './student/StudentQuiz';
 import { StudentMaterials } from './student/StudentMaterials';
 import { AssessmentTask, AssessmentRecord } from '../types';
-import { DatabaseService, subscribeToDataChanges } from '../services/db';
+import { DatabaseService, subscribeToDataChanges, isTaskForStudent } from '../services/db';
 import { useAuth } from '../context/AuthContext';
 import {
   ClipboardList,
@@ -47,10 +47,7 @@ export const StudentView: React.FC<StudentViewProps> = ({
       DatabaseService.getAssessments()
     ]);
 
-    const userClass = (user.kelas || 'XI 7').toLowerCase();
-    const relevantTasks = allTasks.filter(
-      (t) => t.kelas.toLowerCase() === userClass && t.status === 'aktif'
-    );
+    const relevantTasks = allTasks.filter((t) => isTaskForStudent(t, user.kelas));
     setTasks(relevantTasks);
 
     const mine = allAssessments.filter(

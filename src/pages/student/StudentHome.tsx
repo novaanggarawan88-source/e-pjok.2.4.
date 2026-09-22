@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { DatabaseService, subscribeToDataChanges } from '../../services/db';
+import { DatabaseService, subscribeToDataChanges, isTaskForStudent } from '../../services/db';
 import { AssessmentTask, AssessmentRecord, QuizItem, MaterialItem } from '../../types';
 import { StudentTab } from '../../components/StudentNav';
 import {
@@ -43,17 +43,8 @@ export const StudentHome: React.FC<StudentHomeProps> = ({
       DatabaseService.getMaterialsForClass(user.kelas || 'Semua Kelas')
     ]);
 
-    // Tasks for user's class (mendukung pemilihan kelas lebih dari 1)
-    const userClass = (user.kelas || 'XI 7').trim().toLowerCase();
-    const relevantTasks = allTasks.filter((t) => {
-      if (t.status !== 'aktif') return false;
-      if (t.kelas === 'Semua' || userClass === 'semua') return true;
-      if (t.targetKelas && Array.isArray(t.targetKelas) && t.targetKelas.length > 0) {
-        return t.targetKelas.some((k) => k.trim().toLowerCase() === userClass);
-      }
-      const taskClasses = (t.kelas || '').split(',').map((k) => k.trim().toLowerCase());
-      return taskClasses.includes(userClass);
-    });
+    // Tasks for user's class
+    const relevantTasks = allTasks.filter((t) => isTaskForStudent(t, user.kelas));
     setTasks(relevantTasks);
     setQuizzes(allQuizzes);
     setMaterials(allMaterials);

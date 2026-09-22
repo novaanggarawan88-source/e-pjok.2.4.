@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { DatabaseService, subscribeToDataChanges } from '../../services/db';
+import { DatabaseService, subscribeToDataChanges, isTaskForStudent } from '../../services/db';
 import { AssessmentTask, ClassItem, IndicatorItem } from '../../types';
 import {
   ClipboardList,
@@ -71,7 +71,7 @@ export const TaskManagement: React.FC<TaskManagementProps> = ({ onNavigateIndica
     setEditingTask(null);
     setNama('Penilaian Antar Teman Passing Bola Basket');
     setMateri('Passing Bola Basket');
-    setSelectedClasses(classes.length > 0 ? [classes[0].nama] : ['XI 7']);
+    setSelectedClasses(classes.length > 0 ? classes.map((c) => c.nama) : ['XI 1', 'XI 2', 'XI 3', 'XI 4', 'XI 5', 'XI 6', 'XI 7', 'XI 8', 'XI 9']);
     
     const today = new Date().toISOString().split('T')[0];
     const twoWeeksLater = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)
@@ -261,12 +261,7 @@ export const TaskManagement: React.FC<TaskManagementProps> = ({ onNavigateIndica
           >
             <option value="Semua">Semua Kelas ({tasks.length} tugas)</option>
             {classes.map((c) => {
-              const count = tasks.filter((t) => {
-                if (t.targetKelas && t.targetKelas.length > 0) {
-                  return t.targetKelas.includes(c.nama);
-                }
-                return (t.kelas || '').split(',').map((k) => k.trim()).includes(c.nama);
-              }).length;
+              const count = tasks.filter((t) => isTaskForStudent(t, c.nama)).length;
               return (
                 <option key={c.id} value={c.nama}>
                   Kelas {c.nama} ({count} tugas)
@@ -280,13 +275,7 @@ export const TaskManagement: React.FC<TaskManagementProps> = ({ onNavigateIndica
           Menampilkan{' '}
           <strong className="text-slate-800">
             {
-              tasks.filter((t) => {
-                if (filterClass === 'Semua') return true;
-                if (t.targetKelas && t.targetKelas.length > 0) {
-                  return t.targetKelas.includes(filterClass);
-                }
-                return (t.kelas || '').split(',').map((k) => k.trim()).includes(filterClass);
-              }).length
+              tasks.filter((t) => filterClass === 'Semua' || isTaskForStudent(t, filterClass)).length
             }
           </strong>{' '}
           tugas penilaian
@@ -301,13 +290,7 @@ export const TaskManagement: React.FC<TaskManagementProps> = ({ onNavigateIndica
           </div>
         ) : (
           tasks
-            .filter((task) => {
-              if (filterClass === 'Semua') return true;
-              if (task.targetKelas && task.targetKelas.length > 0) {
-                return task.targetKelas.includes(filterClass);
-              }
-              return (task.kelas || '').split(',').map((k) => k.trim()).includes(filterClass);
-            })
+            .filter((task) => filterClass === 'Semua' || isTaskForStudent(task, filterClass))
             .map((task) => {
               const assignedClasses = (task.targetKelas && task.targetKelas.length > 0)
                 ? task.targetKelas
