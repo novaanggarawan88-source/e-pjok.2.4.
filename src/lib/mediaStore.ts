@@ -56,25 +56,39 @@ function base64ToBlob(base64: string, mimeType = 'video/mp4'): Blob {
   return new Blob([byteArray], { type: mimeType });
 }
 
+/**
+ * Sanitasi string ID agar aman digunakan sebagai kunci IndexedDB
+ * dan ID dokumen Firestore tanpa karakter slash (/) yang memicu sub-koleksi tak valid.
+ */
+export function sanitizeMediaKey(id: string): string {
+  if (!id) return '';
+  return id
+    .replace(/^idb:\/\//, '')
+    .replace(/[^a-zA-Z0-9_-]/g, '_');
+}
+
 export const MediaStore = {
   /**
    * Menyimpan file/blob secara instan ke IndexedDB lokal
    */
   async saveMedia(id: string, file: Blob | File): Promise<string> {
+    const cleanId = sanitizeMediaKey(id);
     try {
-      const cleanId = id.replace(/^idb:\/\//, '');
       const database = await openDB();
-      return new Promise((resolve, reject) => {
+      return new Promise((resolve) => {
         const tx = database.transaction(STORE_NAME, 'readwrite');
         const store = tx.objectStore(STORE_NAME);
         const req = store.put(file, cleanId);
 
         req.onsuccess = () => resolve(`idb://${cleanId}`);
-        req.onerror = () => reject(req.error);
+        req.onerror = () => {
+          console.warn('Gagal menyimpan ke IndexedDB:', req.error);
+          resolve(`idb://${cleanId}`);
+        };
       });
     } catch (e) {
-      console.warn('Gagal menyimpan ke IndexedDB, menggunakan ObjectURL fallback:', e);
-      return URL.createObjectURL(file);
+      console.warn('Gagal membuka IndexedDB:', e);
+      return `idb://${cleanId}`;
     }
   },
 
@@ -82,18 +96,35 @@ export const MediaStore = {
    * Mengambil Blob dari IndexedDB lokal
    */
   async getBlobFromIndexedDB(id: string): Promise<Blob | null> {
+    const cleanId = sanitizeMediaKey(id);
+    const rawId = id.replace(/^idb:\/\//, '');
+
     try {
-      const cleanId = id.replace(/^idb:\/\//, '');
       const database = await openDB();
       return new Promise((resolve) => {
         const tx = database.transaction(STORE_NAME, 'readonly');
         const store = tx.objectStore(STORE_NAME);
-        const req = store.get(cleanId);
 
+        // Coba cari dengan sanitized key dahulu
+        const req = store.get(cleanId);
         req.onsuccess = () => {
           const result = req.result;
           if (result instanceof Blob) {
             resolve(result);
+            return;
+          }
+
+          // Fallback coba cari dengan raw key jika berbeda
+          if (rawId !== cleanId) {
+            const req2 = store.get(rawId);
+            req2.onsuccess = () => {
+              if (req2.result instanceof Blob) {
+                resolve(req2.result);
+              } else {
+                resolve(null);
+              }
+            };
+            req2.onerror = () => resolve(null);
           } else {
             resolve(null);
           }
@@ -115,31 +146,44 @@ export const MediaStore = {
     file: Blob | File,
     onProgress?: (percent: number) => void
   ): Promise<boolean> {
-    if (!isFirebaseConfigured() || !db) return false;
+    const firestore = db;
+    if (!isFirebaseConfigured() || !firestore) return false;
     try {
-      const cleanId = mediaId.replace(/^idb:\/\//, '');
-      const CHUNK_SIZE = 450 * 1024; // 450 KB per pecahan
+      const cleanId = sanitizeMediaKey(mediaId);
+      const CHUNK_SIZE = 450 * 1024; // 450 KB per slice (~600KB base64, safe under 1MB Firestore limit)
       const totalChunks = Math.max(1, Math.ceil(file.size / CHUNK_SIZE));
       const mimeType = file.type || 'video/mp4';
 
-      for (let i = 0; i < totalChunks; i++) {
-        const start = i * CHUNK_SIZE;
-        const end = Math.min(start + CHUNK_SIZE, file.size);
-        const slice = file.slice(start, end, mimeType);
-        const base64Data = await blobToBase64(slice);
+      // Upload paralel per 4 potongan agar proses upload cepat
+      const BATCH_SIZE = 4;
+      for (let i = 0; i < totalChunks; i += BATCH_SIZE) {
+        const batchPromises: Promise<any>[] = [];
+        for (let j = i; j < Math.min(i + BATCH_SIZE, totalChunks); j++) {
+          const start = j * CHUNK_SIZE;
+          const end = Math.min(start + CHUNK_SIZE, file.size);
+          const slice = file.slice(start, end, mimeType);
 
-        await setDoc(doc(db, 'media_chunks', `${cleanId}_${i}`), {
-          mediaId: cleanId,
-          chunkIndex: i,
-          totalChunks,
-          mimeType,
-          data: base64Data,
-          size: slice.size,
-          createdAt: new Date().toISOString()
-        });
+          const uploadSlice = async (idx: number, blobSlice: Blob) => {
+            const base64Data = await blobToBase64(blobSlice);
+            await setDoc(doc(firestore, 'media_chunks', `${cleanId}_${idx}`), {
+              mediaId: cleanId,
+              chunkIndex: idx,
+              totalChunks,
+              mimeType,
+              data: base64Data,
+              size: blobSlice.size,
+              createdAt: new Date().toISOString()
+            });
+          };
 
-        onProgress?.(Math.round(((i + 1) / totalChunks) * 100));
+          batchPromises.push(uploadSlice(j, slice));
+        }
+
+        await Promise.all(batchPromises);
+        const uploadedCount = Math.min(i + BATCH_SIZE, totalChunks);
+        onProgress?.(Math.round((uploadedCount / totalChunks) * 100));
       }
+
       return true;
     } catch (err) {
       console.warn('Firestore video chunk upload error:', err);
@@ -157,7 +201,7 @@ export const MediaStore = {
   ): Promise<string | null> {
     if (!id) return null;
 
-    // Jika sudah URL langsung (http, https, data:video, data:image)
+    // Jika sudah URL langsung (http, https, data:video, data:image, blob:)
     if (
       id.startsWith('http://') ||
       id.startsWith('https://') ||
@@ -168,11 +212,11 @@ export const MediaStore = {
       return id;
     }
 
-    const cleanId = id.replace(/^idb:\/\//, '');
+    const cleanId = sanitizeMediaKey(id);
 
-    // 1. Cek IndexedDB perangkat ini dulu
+    // 1. Cek IndexedDB perangkat ini dulu (pemutaran lokal instan 0 ms)
     try {
-      const localBlob = await this.getBlobFromIndexedDB(cleanId);
+      const localBlob = await this.getBlobFromIndexedDB(id);
       if (localBlob && localBlob.size > 0) {
         return URL.createObjectURL(localBlob);
       }
@@ -191,21 +235,36 @@ export const MediaStore = {
           const totalChunks = Number(firstData.totalChunks) || 1;
           const mimeType = firstData.mimeType || 'video/mp4';
 
-          const chunks: Blob[] = [base64ToBlob(firstData.data, mimeType)];
+          const chunkBlobs: (Blob | null)[] = new Array(totalChunks).fill(null);
+          chunkBlobs[0] = base64ToBlob(firstData.data, mimeType);
           onDownloadProgress?.(Math.round((1 / totalChunks) * 100));
 
-          for (let i = 1; i < totalChunks; i++) {
-            const chunkDoc = await getDoc(doc(db, 'media_chunks', `${cleanId}_${i}`));
-            if (chunkDoc.exists()) {
-              chunks.push(base64ToBlob(chunkDoc.data().data, mimeType));
-              onDownloadProgress?.(Math.round(((i + 1) / totalChunks) * 100));
+          if (totalChunks > 1) {
+            // Unduh pecahan lainnya secara paralel (batch 5)
+            const BATCH_SIZE = 5;
+            for (let i = 1; i < totalChunks; i += BATCH_SIZE) {
+              const batchPromises: Promise<any>[] = [];
+              for (let j = i; j < Math.min(i + BATCH_SIZE, totalChunks); j++) {
+                const fetchChunk = async (idx: number) => {
+                  const chunkDoc = await getDoc(doc(db, 'media_chunks', `${cleanId}_${idx}`));
+                  if (chunkDoc.exists()) {
+                    chunkBlobs[idx] = base64ToBlob(chunkDoc.data().data, mimeType);
+                  }
+                };
+                batchPromises.push(fetchChunk(j));
+              }
+              await Promise.all(batchPromises);
+              const downloaded = chunkBlobs.filter(Boolean).length;
+              onDownloadProgress?.(Math.round((downloaded / totalChunks) * 100));
             }
           }
 
-          if (chunks.length === totalChunks) {
-            const fullBlob = new Blob(chunks, { type: mimeType });
-            // Simpan ke IndexedDB lokal agar selanjutnya putar instan (<10ms)
-            await this.saveMedia(cleanId, fullBlob);
+          if (chunkBlobs.every(Boolean)) {
+            const fullBlob = new Blob(chunkBlobs as Blob[], { type: mimeType });
+            // Simpan ke IndexedDB lokal agar selanjutnya pemutaran berikutnya instan (<10ms)
+            try {
+              await this.saveMedia(cleanId, fullBlob);
+            } catch {}
             return URL.createObjectURL(fullBlob);
           }
         }

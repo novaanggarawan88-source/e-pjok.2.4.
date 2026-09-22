@@ -714,7 +714,9 @@ export const DatabaseService = {
     const storagePath = `assessment-evidence/${taskId}/${assessorId}/${safeFileName}`;
 
     // 1. Simpan segera ke IndexedDB lokal dalam waktu < 50ms tanpa blocking
-    const mediaId = `media_${taskId}_${assessorId}_${Date.now()}`;
+    const safeTaskId = taskId.replace(/[^a-zA-Z0-9_-]/g, '_');
+    const safeAssessorId = assessorId.replace(/[^a-zA-Z0-9_-]/g, '_');
+    const mediaId = `media_${Date.now()}_${safeTaskId.substring(0, 30)}_${safeAssessorId.substring(0, 30)}`;
     const idbUrl = await MediaStore.saveMedia(mediaId, file);
 
     // 2. Buat thumbnail ringkas (~15KB) secara instan agar guru & siswa langsung bisa melihat bukti gerakan
@@ -734,7 +736,7 @@ export const DatabaseService = {
     // 3. Unggah ke Firestore Chunks agar video dapat diputar oleh Guru & Siswa di semua perangkat (Cloud Sync)
     try {
       await MediaStore.uploadToFirestoreChunks(mediaId, file, (pct) => {
-        onProgress?.(Math.round(pct * 0.85));
+        onProgress?.(Math.round(pct * 0.9));
       });
     } catch (err) {
       console.warn('Upload cloud chunks warning:', err);
@@ -764,13 +766,13 @@ export const DatabaseService = {
         });
 
         const timeoutPromise = new Promise<{ url: string; path: string }>((_, reject) =>
-          setTimeout(() => reject(new Error('Storage timeout, menggunakan cloud chunks')), 6000)
+          setTimeout(() => reject(new Error('Storage timeout, menggunakan cloud chunks')), 1500)
         );
 
         const res = await Promise.race([uploadPromise, timeoutPromise]);
         return { ...res, thumbnailUrl };
       } catch (err) {
-        console.warn('Firebase storage upload skipped/failed, cloud chunks will be used:', err);
+        // Firebase Storage optional, cloud chunks Firestore menjadi jalur utama
       }
     }
 
@@ -787,7 +789,8 @@ export const DatabaseService = {
     path?: string,
     onProgress?: (percent: number) => void
   ): Promise<{ url: string; path: string; thumbnailUrl?: string | null }> {
-    return this.uploadEvidence(file, path || 'assessments', 'upload', onProgress);
+    const safePath = (path || 'assessments').replace(/[^a-zA-Z0-9_-]/g, '_');
+    return this.uploadEvidence(file, safePath, 'upload', onProgress);
   },
 
   // --- APP CONFIG & LOGO (Sinkron Multi-Device HP & Laptop) ---
