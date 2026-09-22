@@ -36,7 +36,7 @@ const MainApp: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-100/70 dark:bg-slate-950 text-slate-800 dark:text-slate-100 flex flex-col font-sans selection:bg-emerald-600 selection:text-white transition-colors">
+    <div className="h-screen bg-slate-100/70 dark:bg-slate-950 text-slate-800 dark:text-slate-100 flex flex-col font-sans selection:bg-emerald-600 selection:text-white transition-colors overflow-hidden">
       {/* Top Navbar */}
       <Navbar
         isSidebarOpen={isSidebarOpen}
@@ -44,17 +44,19 @@ const MainApp: React.FC = () => {
       />
 
       {/* Role-Based View */}
-      {user.role === 'guru' ? (
-        <TeacherView
-          isSidebarOpen={isSidebarOpen}
-          onCloseSidebar={() => setIsSidebarOpen(false)}
-        />
-      ) : (
-        <StudentView
-          isSidebarOpen={isSidebarOpen}
-          onCloseSidebar={() => setIsSidebarOpen(false)}
-        />
-      )}
+      <div className="flex-1 min-h-0 flex overflow-hidden w-full relative">
+        {user.role === 'guru' ? (
+          <TeacherView
+            isSidebarOpen={isSidebarOpen}
+            onCloseSidebar={() => setIsSidebarOpen(false)}
+          />
+        ) : (
+          <StudentView
+            isSidebarOpen={isSidebarOpen}
+            onCloseSidebar={() => setIsSidebarOpen(false)}
+          />
+        )}
+      </div>
     </div>
   );
 };

@@ -90,7 +90,7 @@ export const StudentView: React.FC<StudentViewProps> = ({
   // If student is currently filling out an assessment form
   if (activeTaskForForm) {
     return (
-      <div className="min-h-[calc(100vh-5rem)] flex">
+      <div className="w-full h-full flex overflow-hidden">
         <StudentSidebar
           currentTab={currentTab}
           onSelectTab={(tab) => {
@@ -102,7 +102,7 @@ export const StudentView: React.FC<StudentViewProps> = ({
           onClose={onCloseSidebar}
           pendingTaskCount={pendingCount}
         />
-        <main className="flex-1 p-3 sm:p-6 lg:p-8 max-w-4xl mx-auto w-full overflow-y-auto">
+        <main className="flex-1 h-full p-3 sm:p-6 lg:p-8 max-w-4xl mx-auto w-full overflow-y-auto">
           <StudentAssessmentForm
             task={activeTaskForForm}
             existingRecord={editingRecord}
@@ -115,7 +115,7 @@ export const StudentView: React.FC<StudentViewProps> = ({
   }
 
   return (
-    <div className="min-h-[calc(100vh-5rem)] flex relative">
+    <div className="w-full h-full flex overflow-hidden relative">
       {/* Student Sidebar for Desktop & Mobile Slide-in */}
       <StudentSidebar
         currentTab={currentTab}
@@ -126,8 +126,8 @@ export const StudentView: React.FC<StudentViewProps> = ({
       />
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col overflow-y-auto w-full">
-        <main className="flex-1 p-3.5 sm:p-6 lg:p-8 max-w-5xl mx-auto w-full pb-24 lg:pb-8">
+      <div className="flex-1 h-full flex flex-col overflow-hidden w-full">
+        <main className="flex-1 h-full p-3.5 sm:p-6 lg:p-8 max-w-5xl mx-auto w-full pb-24 lg:pb-8 overflow-y-auto">
           {currentTab === 'home' && (
             <StudentHome
               onNavigateTab={setCurrentTab}

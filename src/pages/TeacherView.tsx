@@ -31,7 +31,7 @@ export const TeacherView: React.FC<TeacherViewProps> = ({
   };
 
   return (
-    <div className="min-h-[calc(100vh-5rem)] flex">
+    <div className="w-full h-full flex overflow-hidden">
       {/* Teacher Sidebar */}
       <Sidebar
         currentMenu={currentMenu}
@@ -44,7 +44,7 @@ export const TeacherView: React.FC<TeacherViewProps> = ({
       />
 
       {/* Main Content Area */}
-      <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full overflow-y-auto">
+      <main className="flex-1 h-full p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto w-full overflow-y-auto">
         {currentMenu === 'dashboard' && (
           <TeacherDashboard
             onNavigate={setCurrentMenu}
